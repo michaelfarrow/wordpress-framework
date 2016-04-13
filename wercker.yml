@@ -10,14 +10,38 @@ services:
 
 dev:
   steps:
+    # Setup some environment variables, including database credentials from
+    # linked containers, aswell as defining cache directories.
     - script:
         name: export env vars
         code: |
           export WORDPRESS_DB_HOST=$MARIADB_PORT_3306_TCP_ADDR
           export WORDPRESS_DB_PASSWORD=$MARIADB_ENV_MYSQL_ROOT_PASSWORD
+          export WERCKER_APPLICATION_CACHE="$WERCKER_CACHE_DIR/app"
+          export WP_PLUGIN_CACHE="$WERCKER_APPLICATION_CACHE/plugins"
+          export WP_THEME_CACHE="$WERCKER_APPLICATION_CACHE/themes"
+
+    # To work properly offline when using --docker-local, we must manually
+    # download plugins and themes to the cache directory, and install them
+    # from their cached archives. Here we just setup those cache directories.
+    - script:
+        name: create cache directories
+        code: |
+          mkdir -p "$WP_PLUGIN_CACHE"
+          mkdir -p "$WP_THEME_CACHE"
+
+    # Remove opcache from php to have our modifications show up instantly
     - script:
         name: remove opcache
         code: rm -rf /usr/local/etc/php/conf.d/opcache-recommended.ini
+
+    # The default Wordpress image is quite good. It copies all the standard
+    # Wordpress files on container run, however, the entrypoint script that does
+    # this only does so if we pass apache-* or php-fpm as the argument. It would
+    # also run the passed command when it's done, starting the server. We want to
+    # do the install at this point, but not run the server until much later, so we
+    # need to create an empty shell script to pass as the argument. We'll call the
+    # apache run command manually later.
     - script:
         name: create null apache2 script
         code: |
@@ -28,22 +52,40 @@ dev:
         code: |
           cd /var/www/html/
           /entrypoint.sh apache2-null
+
+    # Set these values here so we don't have to add them on every wp-cli step.
+    # $WERCKER_WP_CLI_ENV_DIR and $WERCKER_WP_CLI_ENV_USER vars are exported.
     - weyforth/wp-cli-env:
         name: setup wp-cli environment
         dir: /var/www/html
         user: www-data
+
+    # Do the Wordpress install. Esentially bypass the install screen you would
+    # be presented with when you visit a fresh Wordpress install. Wordpress needs
+    # a url to install properly, so we just pass localhost here. We will dynamically
+    # set the url using a bit of injected php later.
     - weyforth/wp-cli:
         name: install core
         cmd: core install --url="http://localhost" --title="Site Title" --admin_user=admin --admin_password=changeme --admin_email=johndoe@wordpress.com --skip-email
+
+    # Manually pull all our themes and cache them.
+    - script:
+        name: pull themes
+        code: |
+          export WP_THEME_SAGE_VERSION=8.4.1
+          export WP_THEME_SAGE="$WP_THEME_CACHE/sage.$WP_THEME_SAGE_VERSION.zip"
+          [ -f "$WP_THEME_SAGE" ] || curl -L -o "$WP_THEME_SAGE" "https://github.com/roots/sage/archive/$WP_THEME_SAGE_VERSION.zip"
+
+    # Install themes.
     - weyforth/wp-cli:
         name: install base theme
-        cmd: theme install "https://github.com/roots/sage/archive/8.4.2.zip"
+        cmd: theme install "$WP_THEME_SAGE"
+
+    # Symlink our development theme to the correct location and activate it.
+
     # - script:
     #     name: symlink child theme
     #     code: ln -s "$WERCKER_ROOT/themes/bloc-child" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc-child"
-    # - weyforth/wp-cli:
-    #     name: activate child theme
-    #     cmd: theme activate bloc-child
     # - weyforth/wp-cli:
     #     name: activate base theme
     #     cmd: theme activate sage
@@ -59,15 +101,27 @@ dev:
     # - weyforth/wp-cli:
     #     name: setup theme
     #     cmd: eval "do_action('setup_theme');"
+
+    # Manually pull all our plugins and cache them.
+    - script:
+        name: pull plugins
+        code: |
+          export WP_PLUGIN_META_BOX_VERSION=4.8.4
+          export WP_PLUGIN_META_BOX="$WP_PLUGIN_CACHE/meta-box.$WP_PLUGIN_META_BOX_VERSION.zip"
+          [ -f "$WP_PLUGIN_META_BOX" ] || curl -L -o "$WP_PLUGIN_META_BOX" "https://downloads.wordpress.org/plugin/meta-box.$WP_PLUGIN_META_BOX_VERSION.zip"
+
+    # Install plugins.
     - weyforth/wp-cli:
         name: install and activate meta box plugin
-        cmd: plugin install meta-box --activate
-    # - weyforth/wp-cli:
-    #     name: install and activate visual composer plugin
-    #     cmd: plugin install "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc/includes/tgm-plugin-activation/plugins/js_composer.zip" --activate
+        cmd: plugin install "$WP_PLUGIN_META_BOX" --activate
+
+    # Set our pretty permalink structure.
     - weyforth/wp-cli:
         name: activate pretty permalinks
         cmd: rewrite structure "/%postname%/"
+
+    # Prepend some defines to our wp-config.php file in order to set our WP_HOME
+    # and WP_SITEURL environment variables automatically.
     - script:
         name: update wp-config.php
         code: |
@@ -76,7 +130,11 @@ dev:
           echo '<?php if(!defined("WP_HOME")) define("WP_HOME", "http://" . $_SERVER["HTTP_HOST"]); ?>' > wp-config.php
           echo '<?php if(!defined("WP_SITEURL")) define("WP_SITEURL", WP_HOME); ?>' >> wp-config.php
           cat /tmp/wp-config.php.tmp >> wp-config.php
+
+    # Start the apache server
     - script:
         name: start apache2
-        code: apache2-foreground &
+        code: apache2
+
+    # Finally, drop into a shell for tinkering
     - internal/shell
