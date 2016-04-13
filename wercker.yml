@@ -1,0 +1,82 @@
+box:
+  id: wordpress
+  tag: 4.4.2
+
+services:
+  - id: mariadb
+    tag: 10.1.13
+    env:
+      MYSQL_ROOT_PASSWORD: secret
+
+dev:
+  steps:
+    - script:
+        name: export env vars
+        code: |
+          export WORDPRESS_DB_HOST=$MARIADB_PORT_3306_TCP_ADDR
+          export WORDPRESS_DB_PASSWORD=$MARIADB_ENV_MYSQL_ROOT_PASSWORD
+    - script:
+        name: remove opcache
+        code: rm -rf /usr/local/etc/php/conf.d/opcache-recommended.ini
+    - script:
+        name: create null apache2 script
+        code: |
+          echo "#!/bin/sh" > /usr/local/bin/apache2-null
+          chmod +x /usr/local/bin/apache2-null
+    - script:
+        name: move wordpress files into place
+        code: |
+          cd /var/www/html/
+          /entrypoint.sh apache2-null
+    - weyforth/wp-cli-env:
+        name: setup wp-cli environment
+        dir: /var/www/html
+        user: www-data
+    - weyforth/wp-cli:
+        name: install core
+        cmd: core install --url="http://localhost" --title="Site Title" --admin_user=admin --admin_password=changeme --admin_email=johndoe@wordpress.com --skip-email
+    - weyforth/wp-cli:
+        name: install base theme
+        cmd: theme install "https://github.com/roots/sage/archive/8.4.2.zip"
+    # - script:
+    #     name: symlink child theme
+    #     code: ln -s "$WERCKER_ROOT/themes/bloc-child" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc-child"
+    # - weyforth/wp-cli:
+    #     name: activate child theme
+    #     cmd: theme activate bloc-child
+    # - weyforth/wp-cli:
+    #     name: activate base theme
+    #     cmd: theme activate sage
+    # - script:
+    #     name: copy theme options
+    #     code: cp "$WERCKER_ROOT/config/theme_options.txt" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc/includes/demo-data/theme_options.txt"
+    # - script:
+    #     name: copy theme import xml
+    #     code: cp "$WERCKER_ROOT/config/import.xml" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc/includes/demo-data/import.xml"
+    # - weyforth/wp-cli:
+    #     name: init admin
+    #     cmd: eval "do_action('admin_init');"
+    # - weyforth/wp-cli:
+    #     name: setup theme
+    #     cmd: eval "do_action('setup_theme');"
+    - weyforth/wp-cli:
+        name: install and activate meta box plugin
+        cmd: plugin install meta-box --activate
+    # - weyforth/wp-cli:
+    #     name: install and activate visual composer plugin
+    #     cmd: plugin install "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc/includes/tgm-plugin-activation/plugins/js_composer.zip" --activate
+    - weyforth/wp-cli:
+        name: activate pretty permalinks
+        cmd: rewrite structure "/%postname%/"
+    - script:
+        name: update wp-config.php
+        code: |
+          cd "$WERCKER_WP_CLI_ENV_DIR"
+          cat wp-config.php > /tmp/wp-config.php.tmp
+          echo '<?php if(!defined("WP_HOME")) define("WP_HOME", "http://" . $_SERVER["HTTP_HOST"]); ?>' > wp-config.php
+          echo '<?php if(!defined("WP_SITEURL")) define("WP_SITEURL", WP_HOME); ?>' >> wp-config.php
+          cat /tmp/wp-config.php.tmp >> wp-config.php
+    - script:
+        name: start apache2
+        code: apache2-foreground &
+    - internal/shell
