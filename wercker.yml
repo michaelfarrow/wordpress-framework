@@ -1,6 +1,6 @@
 box:
-  id: wordpress
-  tag: 4.4.2
+  id: weyforth/wercker-box-wordpress
+  tag: 0.1.0
 
 services:
   - id: mariadb
@@ -75,32 +75,37 @@ dev:
           export WP_THEME_SAGE_VERSION=8.4.1
           export WP_THEME_SAGE="$WP_THEME_CACHE/sage.$WP_THEME_SAGE_VERSION.zip"
           [ -f "$WP_THEME_SAGE" ] || curl -L -o "$WP_THEME_SAGE" "https://github.com/roots/sage/archive/$WP_THEME_SAGE_VERSION.zip"
-
-    # Install themes.
-    - weyforth/wp-cli:
-        name: install base theme
-        cmd: theme install "$WP_THEME_SAGE"
+          [ -d "$WERCKER_ROOT/themes/sage" ] || ( unzip -q "$WP_THEME_SAGE" -d "$WERCKER_ROOT/themes" && mv "$WERCKER_ROOT/themes/sage"* "$WERCKER_ROOT/themes/sage" )
 
     # Symlink our development theme to the correct location and activate it.
+    - script:
+        name: symlink theme
+        code: ln -s "$WERCKER_ROOT/themes/sage" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/sage"
+    - weyforth/wp-cli:
+        name: activate theme
+        cmd: theme activate sage
 
-    # - script:
-    #     name: symlink child theme
-    #     code: ln -s "$WERCKER_ROOT/themes/bloc-child" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc-child"
-    # - weyforth/wp-cli:
-    #     name: activate base theme
-    #     cmd: theme activate sage
-    # - script:
-    #     name: copy theme options
-    #     code: cp "$WERCKER_ROOT/config/theme_options.txt" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc/includes/demo-data/theme_options.txt"
-    # - script:
-    #     name: copy theme import xml
-    #     code: cp "$WERCKER_ROOT/config/import.xml" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/bloc/includes/demo-data/import.xml"
-    # - weyforth/wp-cli:
-    #     name: init admin
-    #     cmd: eval "do_action('admin_init');"
-    # - weyforth/wp-cli:
-    #     name: setup theme
-    #     cmd: eval "do_action('setup_theme');"
+    # Install node dependencies
+    - npm-install:
+        name: install node dependencies
+        options: --no-optional
+        cwd: $WERCKER_ROOT/themes/sage
+    - npm-install:
+        name: install bower
+        options: --no-optional bower@1.7.9
+        cwd: $WERCKER_ROOT/themes/sage
+
+    # Install bower dependencies
+    - script:
+        name: install bower dependencies
+        code: node node_modules/.bin/bower --allow-root install
+        cwd: $WERCKER_ROOT/themes/sage
+
+    # Build using gulp
+    - script:
+        name: build
+        code: node node_modules/.bin/gulp
+        cwd: $WERCKER_ROOT/themes/sage
 
     # Manually pull all our plugins and cache them.
     - script:
@@ -136,5 +141,12 @@ dev:
         name: start apache2
         code: apache2
 
-    # Finally, drop into a shell for tinkering
-    - internal/shell
+    # # Install php dependencies
+    # - weyforth/composer-install:
+    #     name: install php dependencies
+
+    # Finally, drop into a shell for tinkering and run gulp watch
+    - internal/shell:
+        code: |
+          cd $WERCKER_ROOT/themes/sage
+          node node_modules/.bin/gulp watch &
