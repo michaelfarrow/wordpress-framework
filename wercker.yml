@@ -15,11 +15,13 @@ dev:
     - script:
         name: export env vars
         code: |
+          export WEB_ROOT=/var/www/html
           export WORDPRESS_DB_HOST=$MARIADB_PORT_3306_TCP_ADDR
           export WORDPRESS_DB_PASSWORD=$MARIADB_ENV_MYSQL_ROOT_PASSWORD
           export WERCKER_APPLICATION_CACHE="$WERCKER_CACHE_DIR/app"
           export WP_PLUGIN_CACHE="$WERCKER_APPLICATION_CACHE/plugins"
           export WP_THEME_CACHE="$WERCKER_APPLICATION_CACHE/themes"
+          export PATH="$WERCKER_ROOT/themes/sage/node_modules/.bin:$PATH"
 
     # To work properly offline when using --docker-local, we must manually
     # download plugins and themes to the cache directory, and install them
@@ -50,14 +52,14 @@ dev:
     - script:
         name: move wordpress files into place
         code: |
-          cd /var/www/html/
+          cd "$WEB_ROOT"
           /entrypoint.sh apache2-null
 
     # Set these values here so we don't have to add them on every wp-cli step.
-    # $WERCKER_WP_CLI_ENV_DIR and $WERCKER_WP_CLI_ENV_USER vars are exported.
+    # $WEB_ROOT and $WERCKER_WP_CLI_ENV_USER vars are exported.
     - weyforth/wp-cli-env:
         name: setup wp-cli environment
-        dir: /var/www/html
+        dir: $WEB_ROOT
         user: www-data
 
     # Do the Wordpress install. Esentially bypass the install screen you would
@@ -72,9 +74,9 @@ dev:
     - script:
         name: remove standard themes
         code: |
-          rm -rf "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/twentyfourteen"
-          rm -rf "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/twentyfifteen"
-          rm -rf "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/twentysixteen"
+          rm -rf "$WEB_ROOT/wp-content/themes/twentyfourteen"
+          rm -rf "$WEB_ROOT/wp-content/themes/twentyfifteen"
+          rm -rf "$WEB_ROOT/wp-content/themes/twentysixteen"
 
     # Manually pull all our themes and cache them.
     - script:
@@ -88,7 +90,7 @@ dev:
     # Symlink our development theme to the correct location and activate it.
     - script:
         name: symlink theme
-        code: ln -s "$WERCKER_ROOT/themes/sage" "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/sage"
+        code: ln -s "$WERCKER_ROOT/themes/sage" "$WEB_ROOT/wp-content/themes/sage"
     - weyforth/wp-cli:
         name: activate theme
         cmd: theme activate sage
@@ -112,13 +114,13 @@ dev:
     # Install bower dependencies
     - script:
         name: install bower dependencies
-        code: node node_modules/.bin/bower --allow-root install
+        code: bower --allow-root install
         cwd: $WERCKER_ROOT/themes/sage
 
     # Build using gulp
     - script:
         name: build
-        code: node node_modules/.bin/gulp
+        code: gulp
         cwd: $WERCKER_ROOT/themes/sage
 
     # Manually pull all our plugins and cache them.
@@ -144,7 +146,7 @@ dev:
     - script:
         name: update wp-config.php
         code: |
-          cd "$WERCKER_WP_CLI_ENV_DIR"
+          cd "$WEB_ROOT"
           cat wp-config.php > /tmp/wp-config.php.tmp
           echo '<?php if(!defined("WP_HOME")) define("WP_HOME", "http://" . $_SERVER["HTTP_HOST"]); ?>' > wp-config.php
           echo '<?php if(!defined("WP_SITEURL")) define("WP_SITEURL", WP_HOME); ?>' >> wp-config.php
@@ -159,4 +161,4 @@ dev:
     - internal/shell:
         code: |
           cd $WERCKER_ROOT/themes/sage
-          node node_modules/.bin/gulp watch &
+          gulp watch &
