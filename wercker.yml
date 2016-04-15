@@ -93,14 +93,20 @@ dev:
         name: activate theme
         cmd: theme activate sage
 
+    # Install php dependencies
+    - weyforth/composer-install:
+        name: install php dependencies
+        cwd: $WERCKER_ROOT/themes/sage
+
     # Install node dependencies
     - npm-install:
         name: install node dependencies
         options: --no-optional
         cwd: $WERCKER_ROOT/themes/sage
-    - npm-install:
-        name: install bower
-        options: --no-optional bower@1.7.9
+    - script:
+        name: add bower to node dependencies
+        code: |
+          [ -f node_modules/.bin/bower ] || npm install --no-optional --save-dev bower@1.7.9
         cwd: $WERCKER_ROOT/themes/sage
 
     # Install bower dependencies
@@ -148,10 +154,6 @@ dev:
     - script:
         name: start apache2
         code: apache2
-
-    # # Install php dependencies
-    # - weyforth/composer-install:
-    #     name: install php dependencies
 
     # Finally, drop into a shell for tinkering and run gulp watch
     - internal/shell:
