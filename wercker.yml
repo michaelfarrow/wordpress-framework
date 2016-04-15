@@ -68,6 +68,14 @@ dev:
         name: install core
         cmd: core install --url="http://localhost" --title="Site Title" --admin_user=admin --admin_password=changeme --admin_email=johndoe@wordpress.com --skip-email
 
+    # Remove the standard wordpress themes.
+    - script:
+        name: remove standard themes
+        code: |
+          rm -rf "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/twentyfourteen"
+          rm -rf "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/twentyfifteen"
+          rm -rf "$WERCKER_WP_CLI_ENV_DIR/wp-content/themes/twentysixteen"
+
     # Manually pull all our themes and cache them.
     - script:
         name: pull themes
