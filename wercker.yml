@@ -170,3 +170,40 @@ dev:
         code: |
           cd $WERCKER_ROOT/themes/sage
           gulp watch &
+
+build:
+  steps:
+    - script:
+        name: export env vars
+        code: |
+          export PATH="$WERCKER_ROOT/themes/sage/node_modules/.bin:$PATH"
+    - script:
+        name: remove vendor folders for local dev build testing
+        code: |
+          rm -rf node_modules
+          rm -rf bower_components
+          rm -rf vendor
+          rm -rf dist
+        cwd: $WERCKER_ROOT/themes/sage
+    - weyforth/composer-install:
+        name: install php dependencies
+        cwd: $WERCKER_ROOT/themes/sage
+    - npm-install:
+        name: install node dependencies
+        options: --no-optional
+        cwd: $WERCKER_ROOT/themes/sage
+    - script:
+        name: install bower dependencies
+        code: node_modules/.bin/bower --allow-root install
+        cwd: $WERCKER_ROOT/themes/sage
+    - script:
+        name: build
+        code: gulp --production
+        cwd: $WERCKER_ROOT/themes/sage
+    - script:
+        name: export the theme
+        code: |
+          cp -r themes/sage "$WERCKER_OUTPUT_DIR"
+          rm "$WERCKER_OUTPUT_DIR/sage/.gitignore"
+          cp -r dokku "$WERCKER_OUTPUT_DIR"
+          mv "$WERCKER_OUTPUT_DIR/dokku/Dockerfile" "$WERCKER_OUTPUT_DIR/Dockerfile"
