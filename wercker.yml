@@ -1,14 +1,15 @@
 box:
   id: weyforth/wercker-box-wordpress
-  tag: 0.1.0
-
-services:
-  - id: mariadb
-    tag: 10.1.13
-    env:
-      MYSQL_ROOT_PASSWORD: secret
+  tag: 0.1.1
 
 dev:
+
+  services:
+    - id: mariadb
+      tag: 10.1.13
+      env:
+        MYSQL_ROOT_PASSWORD: secret
+
   steps:
     # Setup some environment variables, including database credentials from
     # linked containers, aswell as defining cache directories.
@@ -87,6 +88,13 @@ dev:
           [ -f "$WP_THEME_SAGE" ] || curl -L -o "$WP_THEME_SAGE" "https://github.com/roots/sage/archive/$WP_THEME_SAGE_VERSION.zip"
           [ -d "$WERCKER_ROOT/themes/sage" ] || ( unzip -q "$WP_THEME_SAGE" -d "$WERCKER_ROOT/themes" && mv "$WERCKER_ROOT/themes/sage"* "$WERCKER_ROOT/themes/sage" )
 
+    # Add composer vendor dir to gitignore
+    - script:
+        name: add composer vendor dir to gitignore
+        code: |
+          grep -q -F "/vendor/" .gitignore || echo "/vendor/" >> .gitignore
+        cwd: $WERCKER_ROOT/themes/sage
+
     # Symlink our development theme to the correct location and activate it.
     - script:
         name: symlink theme
@@ -95,12 +103,12 @@ dev:
         name: activate theme
         cmd: theme activate sage
 
-    # Install php dependencies
+    # Install php dependencies.
     - weyforth/composer-install:
         name: install php dependencies
         cwd: $WERCKER_ROOT/themes/sage
 
-    # Install node dependencies
+    # Install node dependencies.
     - npm-install:
         name: install node dependencies
         options: --no-optional
@@ -111,13 +119,13 @@ dev:
           [ -f node_modules/.bin/bower ] || npm install --no-optional --save-dev bower@1.7.9
         cwd: $WERCKER_ROOT/themes/sage
 
-    # Install bower dependencies
+    # Install bower dependencies.
     - script:
         name: install bower dependencies
         code: bower --allow-root install
         cwd: $WERCKER_ROOT/themes/sage
 
-    # Build using gulp
+    # Build using gulp.
     - script:
         name: build
         code: gulp
