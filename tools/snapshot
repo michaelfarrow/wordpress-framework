@@ -1,0 +1,9 @@
+#!/bin/bash
+
+source "$WERCKER_ROOT/tools/_colours"
+
+mysqldump --databases wordpress --host $WORDPRESS_DB_HOST --user root -p$WORDPRESS_DB_PASSWORD > "$DB_BACKUP_LOCATION"
+rm -rf "$UPLOADS_BACKUP_LOCATION"
+cp -r "$UPLOADS_LOCATION" "$UPLOADS_BACKUP_LOCATION"
+echo -e "${BGreen}Database exported${Color_Off}"
+echo -e "${BGreen}Uploads exported${Color_Off}"

@@ -1,6 +1,6 @@
 box:
   id: weyforth/wercker-box-wordpress
-  tag: 0.1.1
+  tag: 0.2.1
 
 dev:
 
@@ -23,6 +23,16 @@ dev:
           export WP_PLUGIN_CACHE="$WERCKER_APPLICATION_CACHE/plugins"
           export WP_THEME_CACHE="$WERCKER_APPLICATION_CACHE/themes"
           export PATH="$WERCKER_ROOT/themes/sage/node_modules/.bin:$PATH"
+          export DB_BACKUP_LOCATION="$WERCKER_ROOT/data/db.sql"
+          export UPLOADS_BACKUP_LOCATION="$WERCKER_ROOT/data/uploads"
+          export UPLOADS_LOCATION="$WEB_ROOT/wp-content/uploads"
+
+    # Link our tools
+    - script:
+        name: link tools
+        code: |
+          ln -s "$WERCKER_ROOT/tools/snapshot" /usr/local/bin/snapshot
+          ln -s "$WERCKER_ROOT/tools/snapshot-restore" /usr/local/bin/snapshot-restore
 
     # To work properly offline when using --docker-local, we must manually
     # download plugins and themes to the cache directory, and install them
@@ -159,6 +169,11 @@ dev:
           echo '<?php if(!defined("WP_HOME")) define("WP_HOME", "http://" . $_SERVER["HTTP_HOST"]); ?>' > wp-config.php
           echo '<?php if(!defined("WP_SITEURL")) define("WP_SITEURL", WP_HOME); ?>' >> wp-config.php
           cat /tmp/wp-config.php.tmp >> wp-config.php
+
+    # Restore our site to the last snapshot state, if one exists
+    - script:
+        name: restore snapshot
+        code: snapshot-restore
 
     # Start the apache server
     - script:

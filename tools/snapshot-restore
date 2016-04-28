@@ -1,0 +1,15 @@
+#!/bin/bash
+
+source "$WERCKER_ROOT/tools/_colours"
+
+if [ -f "$DB_BACKUP_LOCATION" ]; then
+  mysql --host $WORDPRESS_DB_HOST --user root -p$WORDPRESS_DB_PASSWORD wordpress < "$DB_BACKUP_LOCATION"
+  echo -e "${BGreen}Database imported${Color_Off}"
+fi
+
+if [ -d "$UPLOADS_BACKUP_LOCATION" ]; then
+  rm -rf "$UPLOADS_LOCATION"
+  cp -r "$UPLOADS_BACKUP_LOCATION" "$UPLOADS_LOCATION"
+  chown -R www-data:www-data "$UPLOADS_LOCATION"
+  echo -e "${BGreen}Uploads imported${Color_Off}"
+fi

@@ -1,4 +1,4 @@
-FROM weyforth/wordpress:4.5.0-apache
+FROM weyforth/wordpress:4.5.1-apache
 
 COPY sage /app/themes/sage
 COPY dokku/wordpress-entrypoint.sh /wordpress-entrypoint.sh
