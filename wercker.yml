@@ -183,6 +183,8 @@ dev:
     # Finally, drop into a shell for tinkering and run gulp watch
     - internal/shell:
         code: |
+          stty columns 9999999
+          stty rows 1
           cd $WERCKER_ROOT/themes/sage
           gulp watch &
 
