@@ -33,6 +33,7 @@ dev:
         code: |
           ln -s "$WERCKER_ROOT/tools/snapshot" /usr/local/bin/snapshot
           ln -s "$WERCKER_ROOT/tools/snapshot-restore" /usr/local/bin/snapshot-restore
+          ln -s "$WERCKER_ROOT/tools/log" /usr/local/bin/log
 
     # To work properly offline when using --docker-local, we must manually
     # download plugins and themes to the cache directory, and install them
@@ -180,13 +181,22 @@ dev:
         name: start apache2
         code: apache2
 
+    # Run
+    - script:
+        name: run
+        code: |
+          touch /var/log/wordpress.log
+          apache2 >> /var/log/wordpress.log
+          cd $WERCKER_ROOT/themes/sage
+          gulp watch >> /var/log/wordpress.log &
+
     # Finally, drop into a shell for tinkering and run gulp watch
     - internal/shell:
         code: |
-          stty columns 9999999
-          stty rows 1
+          stty columns $TERMINAL_COLUMNS
+          stty rows $TERMINAL_ROWS
           cd $WERCKER_ROOT/themes/sage
-          gulp watch &
+          log
 
 build:
   steps:

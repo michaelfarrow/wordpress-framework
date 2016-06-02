@@ -2,6 +2,27 @@
 
 Wordpress framework build on Docker, Wercker and Dokku for deployment
 
+## Local Development
+
+### Prerequisites
+
+You must have Docker and Wercker Cli installed before beginning.
+
+### Getting Started
+
+* Clone this repo
+* cd into the root of the repo and run `tools/dev`
+
+The application should now be running on port 80. You will be attached to the running container and the log viewer will run.
+
+If you need to run adhoc commands, hit `ctrl+c` to exit the log viewer. You can return to the log viewer by simply running `log`
+
+To exit fully from the container, hit `ctrl+c` to exit the log viewer and then type `exit` to exit the container.
+
+## Deployment
+
+The framework is setup to deploy to a Dokku instance using Wercker.
+
 ### Wercker Project Setup
 
 1. Navigate to your project and open up `Settings > SSH Keys`
