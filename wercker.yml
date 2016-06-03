@@ -188,7 +188,7 @@ dev:
           touch /var/log/wordpress.log
           apache2 >> /var/log/wordpress.log
           cd $WERCKER_ROOT/themes/sage
-          gulp watch >> /var/log/wordpress.log &
+          gulp watch --color >> /var/log/wordpress.log &
 
     # Finally, drop into a shell for tinkering and run gulp watch
     - internal/shell:
