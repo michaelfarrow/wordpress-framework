@@ -176,19 +176,14 @@ dev:
         name: restore snapshot
         code: snapshot-restore
 
-    # Start the apache server
-    - script:
-        name: start apache2
-        code: apache2
-
     # Run
     - script:
         name: run
         code: |
-          touch /var/log/wordpress.log
-          apache2 >> /var/log/wordpress.log
+          apache2-foreground 2>> /var/log/apache2/error.log 1>> /var/log/apache2/access.log &
           cd $WERCKER_ROOT/themes/sage
-          gulp watch --color >> /var/log/wordpress.log &
+          touch /var/log/gulp.log
+          gulp watch --color >> /var/log/gulp.log &
 
     # Finally, drop into a shell for tinkering and run gulp watch
     - internal/shell:
